@@ -1,7 +1,5 @@
 import "./MyName.css";
 
-const MyName = () => {
+export function MyName() {
   return <h2>Меня зовут Алексей</h2>;
-};
-
-export default MyName;
+}

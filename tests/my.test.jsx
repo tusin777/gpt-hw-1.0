@@ -1,5 +1,4 @@
-/* global describe, it, expect, process, __dirname */
-/* eslint-env node */
+import { describe, it, expect } from "vitest";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -15,95 +14,98 @@ function read(relPath) {
   }
 }
 
-// Универсальный список разрешённых файлов/папок для обычного Vite/React-проекта
-const allowed = [
-  "package.json",
-  "vite.config.js",
-  "index.html",
-  "public",
-  "src",
-  "node_modules",
-  ".gitignore",
-  "eslint.config.js",
-  "package-lock.json",
-  "README.md",
-  "tests", // разрешаем папку для автотестов
-  // любые другие свои файлы добавь сюда при необходимости
-];
+// Функция для “нормализации” JS-кода: убирает все пробелы, табы и переводы строк
+function normalizeJS(code) {
+  return code.replace(/[\s;]/g, "");
+}
 
-describe("Project structure: адекватная чистота и совпадение с автором", () => {
-  it("В корне проекта только нужные файлы и папки", () => {
+describe("ACTUAL AUTHOR REPO: Full code parity check (robust)", () => {
+  it("Корень содержит только нужные файлы и папки", () => {
+    const allowed = [
+      "package.json",
+      "vite.config.js",
+      "index.html",
+      "public",
+      "src",
+      "node_modules",
+      ".gitignore",
+      "README.md",
+      "eslint.config.js",
+      "package-lock.json",
+      "tests",
+    ];
     const files = fs.readdirSync(resolve(""));
     files.forEach((f) => {
       if (!f.startsWith(".")) expect(allowed).toContain(f);
     });
   });
 
-  it("public содержит vite.svg", () => {
-    const publicDir = resolve("public");
-    if (!fs.existsSync(publicDir)) return; // если вдруг папка удалена
-    const files = fs.readdirSync(publicDir);
-    expect(files).toContain("vite.svg");
+  it("public содержит только vite.svg", () => {
+    const files = fs.readdirSync(resolve("public"));
+    expect(files).toEqual(["vite.svg"]);
   });
 
-  it("src содержит main.jsx и components/", () => {
-    const srcDir = resolve("src");
-    const files = fs.readdirSync(srcDir);
-    expect(files).toEqual(expect.arrayContaining(["components", "main.jsx"]));
+  it("src содержит только main.jsx, components и assets", () => {
+    const files = fs.readdirSync(resolve("src"));
+    expect(files.sort()).toEqual(["assets", "components", "main.jsx"].sort());
   });
 
-  it("src/components содержит только App и MyName", () => {
-    const compDir = resolve("src/components");
-    const files = fs.readdirSync(compDir);
-    expect(files.sort()).toEqual(expect.arrayContaining(["App", "MyName"]));
+  it("components содержит App и MyName", () => {
+    const files = fs.readdirSync(resolve("src/components"));
+    expect(files.sort()).toEqual(["App", "MyName"].sort());
   });
 
   it("App папка содержит App.jsx и App.css", () => {
     const files = fs.readdirSync(resolve("src/components/App"));
-    expect(files.sort()).toEqual(
-      expect.arrayContaining(["App.css", "App.jsx"])
-    );
+    expect(files.sort()).toEqual(["App.css", "App.jsx"].sort());
   });
 
   it("MyName папка содержит MyName.jsx и MyName.css", () => {
     const files = fs.readdirSync(resolve("src/components/MyName"));
-    expect(files.sort()).toEqual(
-      expect.arrayContaining(["MyName.css", "MyName.jsx"])
-    );
+    expect(files.sort()).toEqual(["MyName.css", "MyName.jsx"].sort());
   });
 
-  it("App.jsx — корректный импорт, экспорт и JSX", () => {
-    const code = read("src/components/App/App.jsx");
-    expect(code).toMatch(/import MyName from ["']\.\.\/MyName\/MyName["']/);
-    expect(code).toMatch(/import ["']\.\/App\.css["']/);
-    expect(code).toMatch(/export default App/);
-    // Можно сделать регулярку чуть более мягкой, если боишься из-за пробелов
-    expect(code.replace(/\s+/g, " ")).toMatch(
-      /<div> <h1>Привет, React!<\/h1> <p>Это мой первый React проект\.?<\/p> <MyName \/> <\/div>/
+  it("App.jsx — правильно импортирует MyName (именованный импорт) и стили", () => {
+    const code = normalizeJS(read("src/components/App/App.jsx"));
+    expect(code).toMatch(/import\{MyName\}from['"]\.\.\/MyName\/MyName['"]/);
+    expect(code).toMatch(/import['"]\.\/App\.css['"]/);
+    expect(code).toMatch(
+      /<h1>Привет,React!<\/h1><p>ЭтомойпервыйReact-проектсVite<\/p><MyName\/>/
     );
+    expect(code).toMatch(/exportdefaultApp/);
   });
 
-  it("MyName.jsx — корректный импорт, экспорт и JSX", () => {
+  it("MyName.jsx — именованный экспорт, нужный JSX", () => {
     const code = read("src/components/MyName/MyName.jsx");
-    expect(code).toMatch(/import ["']\.\/MyName\.css["']/);
-    expect(code).toMatch(/export default MyName/);
-    expect(code.replace(/\s+/g, " ")).toMatch(/<h2>Меня зовут Алексей<\/h2>/);
+    const norm = normalizeJS(code);
+    expect(norm).toMatch(
+      /exportfunctionMyName\(\){return<h2>МенязовутАлексей<\/h2>}/
+    );
   });
 
-  it("main.jsx импортирует App", () => {
+  it("main.jsx — импортирует App, StrictMode, createRoot, рендерит App", () => {
     const code = read("src/main.jsx");
-    expect(code).toMatch(/import App from ["']\.\/components\/App\/App["']/);
+    const norm = normalizeJS(code);
+    expect(norm).toMatch(
+      /import{StrictMode}from['"]react['"]import{createRoot}from['"]react-dom\/client['"]importAppfrom['"]\.\/components\/App\/App\.jsx['"]createRoot\(document\.getElementById\(['"]root['"]\)\)\.render\(<StrictMode><App\/><\/StrictMode>,\)/
+    );
   });
 
-  it("Нет лишних импортов и кода в App.jsx/MyName.jsx", () => {
+  it("Нет лишних импортов, переменных, шаблонного мусора", () => {
     ["src/components/App/App.jsx", "src/components/MyName/MyName.jsx"].forEach(
       (file) => {
         const code = read(file);
-        ["logo", "viteLogo", "reactLogo", "useState", "useEffect"].forEach(
-          (word) => {
-            expect(code).not.toMatch(new RegExp(word));
-          }
-        );
+        [
+          "logo",
+          "viteLogo",
+          "reactLogo",
+          "useState",
+          "useEffect",
+          "counter",
+          "setCount",
+        ].forEach((word) => {
+          expect(code).not.toMatch(new RegExp(word));
+        });
       }
     );
   });
