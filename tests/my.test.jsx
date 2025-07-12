@@ -1,112 +1,70 @@
+/* eslint-env node */
 import { describe, it, expect } from "vitest";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const resolve = (relPath) => path.join(__dirname, "..", relPath);
+const resolve = (p) => path.resolve(__dirname, "..", p);
+const read = (p) => fs.readFileSync(resolve(p), "utf8");
 
-function read(relPath) {
-  try {
-    return fs.readFileSync(resolve(relPath), "utf8");
-  } catch {
-    return "";
-  }
-}
+describe("Урок 1.5 — JSX: синтаксис и правила", () => {
+  const appPath = "src/components/App/App.jsx";
+  const emailPath = "src/components/Email.jsx";
+  const myNamePath = "src/components/MyName/MyName.jsx";
+  const appCode = read(appPath);
+  const emailCode = read(emailPath);
+  const myNameCode = read(myNamePath);
 
-// Функция для “нормализации” JS-кода: убирает все пробелы, табы и переводы строк
-function normalizeJS(code) {
-  return code.replace(/[\s;]/g, "");
-}
-
-describe("ACTUAL AUTHOR REPO: Full code parity check (robust)", () => {
-  it("Корень содержит только нужные файлы и папки", () => {
-    const allowed = [
-      "package.json",
-      "vite.config.js",
-      "index.html",
-      "public",
-      "src",
-      "node_modules",
-      ".gitignore",
-      "README.md",
-      "eslint.config.js",
-      "package-lock.json",
-      "tests",
-    ];
-    const files = fs.readdirSync(resolve(""));
-    files.forEach((f) => {
-      if (!f.startsWith(".")) expect(allowed).toContain(f);
-    });
-  });
-
-  it("public содержит только vite.svg", () => {
-    const files = fs.readdirSync(resolve("public"));
-    expect(files).toEqual(["vite.svg"]);
-  });
-
-  it("src содержит только main.jsx, components и assets", () => {
-    const files = fs.readdirSync(resolve("src"));
-    expect(files.sort()).toEqual(["assets", "components", "main.jsx"].sort());
-  });
-
-  it("components содержит App и MyName", () => {
-    const files = fs.readdirSync(resolve("src/components"));
-    expect(files.sort()).toEqual(["App", "MyName"].sort());
-  });
-
-  it("App папка содержит App.jsx и App.css", () => {
-    const files = fs.readdirSync(resolve("src/components/App"));
-    expect(files.sort()).toEqual(["App.css", "App.jsx"].sort());
-  });
-
-  it("MyName папка содержит MyName.jsx и MyName.css", () => {
-    const files = fs.readdirSync(resolve("src/components/MyName"));
-    expect(files.sort()).toEqual(["MyName.css", "MyName.jsx"].sort());
-  });
-
-  it("App.jsx — правильно импортирует MyName (именованный импорт) и стили", () => {
-    const code = normalizeJS(read("src/components/App/App.jsx"));
-    expect(code).toMatch(/import\{MyName\}from['"]\.\.\/MyName\/MyName['"]/);
-    expect(code).toMatch(/import['"]\.\/App\.css['"]/);
-    expect(code).toMatch(
-      /<h1>Привет,React!<\/h1><p>ЭтомойпервыйReact-проектсVite<\/p><MyName\/>/
+  it("App импортирует MyName и Email", () => {
+    expect(appCode).toMatch(
+      /import\s+\{\s*MyName\s*\}\s+from\s+['"]\.\.\/MyName\/MyName['"];/
     );
-    expect(code).toMatch(/exportdefaultApp/);
-  });
-
-  it("MyName.jsx — именованный экспорт, нужный JSX", () => {
-    const code = read("src/components/MyName/MyName.jsx");
-    const norm = normalizeJS(code);
-    expect(norm).toMatch(
-      /exportfunctionMyName\(\){return<h2>МенязовутАлексей<\/h2>}/
+    expect(appCode).toMatch(
+      /import\s+\{\s*Email\s*\}\s+from\s+['"]\.\.\/Email['"];/
     );
   });
 
-  it("main.jsx — импортирует App, StrictMode, createRoot, рендерит App", () => {
-    const code = read("src/main.jsx");
-    const norm = normalizeJS(code);
-    expect(norm).toMatch(
-      /import{StrictMode}from['"]react['"]import{createRoot}from['"]react-dom\/client['"]importAppfrom['"]\.\/components\/App\/App\.jsx['"]createRoot\(document\.getElementById\(['"]root['"]\)\)\.render\(<StrictMode><App\/><\/StrictMode>,\)/
+  it("App содержит переменные name, element, condition, response", () => {
+    expect(appCode).toMatch(/const\s+name\s*=\s*['"]Вася Пупкин['"];/);
+    expect(appCode).toMatch(
+      /const\s+element\s*=\s*<h1>Алексей и \{name\} - друзья<\/h1>/
     );
+    expect(appCode).toMatch(/const\s+condition\s*=\s*true/);
+    expect(appCode).toMatch(/const\s+response\s*=\s*['"].*alert.*['"]/);
   });
 
-  it("Нет лишних импортов, переменных, шаблонного мусора", () => {
-    ["src/components/App/App.jsx", "src/components/MyName/MyName.jsx"].forEach(
-      (file) => {
-        const code = read(file);
-        [
-          "logo",
-          "viteLogo",
-          "reactLogo",
-          "useState",
-          "useEffect",
-          "counter",
-          "setCount",
-        ].forEach((word) => {
-          expect(code).not.toMatch(new RegExp(word));
-        });
-      }
+  it("App возвращает JSX во фрагменте", () => {
+    expect(appCode).toMatch(/return\s*\(\s*<>\s*[\s\S]*<\/>/);
+  });
+
+  it("App содержит JSX-элементы из задания", () => {
+    expect(appCode).toMatch(/\{element\}/);
+    expect(appCode).toMatch(/dangerouslySetInnerHTML/);
+    expect(appCode).toMatch(/\{condition\s*&&\s*<MyName\s*\/?>\}/);
+    expect(appCode).toMatch(/<Email\s*\/>/);
+    expect(appCode).toMatch(
+      /<input[^>]*type=["']checkbox["'][^>]*checked=\{false\}/
     );
+    expect(appCode).toMatch(/<img[^>]*alt=/);
+    expect(appCode).toMatch(/<label[^>]*htmlFor=/);
+    expect(appCode).toMatch(/<button[^>]*disabled/);
+  });
+
+  it("Email — это именованный компонент, проверяющий email через regex", () => {
+    expect(emailCode).toMatch(/export function Email\(\)/);
+    expect(emailCode).toMatch(/const\s+email\s*=\s*['"].+@.+\..+['"]/);
+    expect(emailCode).toMatch(/emailRegex\.test\(email\)/);
+    expect(emailCode).toMatch(/return\s+check\s*\?/);
+  });
+
+  it("MyName рендерит массив кошек со стилями", () => {
+    expect(myNameCode).toMatch(
+      /const\s+cats\s*=\s*\[.*['"]Лев['"].*['"]Тигр['"].*['"]Пума['"]\]/
+    );
+    expect(myNameCode).toMatch(
+      /<ul[^>]*style=\{\{[^}]*color.*fontSize.*backgroundColor[^}]*\}\}/
+    );
+    expect(myNameCode).toMatch(/cats\.map/);
   });
 });
